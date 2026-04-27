@@ -170,6 +170,42 @@ afterEvaluate {
         // by the java-gradle-plugin in afterEvaluate, so wire signing here.
         sign(publishing.publications)
     }
+}
+
+// Central Portal validates every published Maven artifact, including the
+// auto-generated Gradle plugin marker pom (`<plugin-id>.gradle.plugin`).
+// Apply the shared metadata (url, license, developers, scm) to every
+// MavenPublication so the marker passes validation alongside `pluginMaven`.
+publishing {
+    publications {
+        withType<MavenPublication>().configureEach {
+            pom {
+                url.set("https://github.com/DNAlchemist/gitlab-code-quality-gradle-plugin")
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+                developers {
+                    developer {
+                        id.set("dnalchemist")
+                        name.set("dnalchemist")
+                    }
+                }
+                scm {
+                    connection.set("scm:git:https://github.com/DNAlchemist/gitlab-code-quality-gradle-plugin.git")
+                    developerConnection.set("scm:git:git@github.com:DNAlchemist/gitlab-code-quality-gradle-plugin.git")
+                    url.set("https://github.com/DNAlchemist/gitlab-code-quality-gradle-plugin")
+                }
+            }
+        }
+    }
+}
+
+// `pluginMaven` carries the actual jar + sources + javadoc, so give it a
+// human-readable name and description on top of the shared metadata.
+afterEvaluate {
     publishing {
         publications {
             named<MavenPublication>("pluginMaven") {
@@ -178,24 +214,6 @@ afterEvaluate {
                     description.set(
                         "Gradle plugin that converts SpotBugs and Checkstyle XML into GitLab code quality JSON."
                     )
-                    url.set("https://github.com/DNAlchemist/gitlab-code-quality-gradle-plugin")
-                    licenses {
-                        license {
-                            name.set("The Apache License, Version 2.0")
-                            url.set("https://www.apache.org/licenses/LICENSE-2.0.txt")
-                        }
-                    }
-                    developers {
-                        developer {
-                            id.set("dnalchemist")
-                            name.set("dnalchemist")
-                        }
-                    }
-                    scm {
-                        connection.set("scm:git:https://github.com/DNAlchemist/gitlab-code-quality-gradle-plugin.git")
-                        developerConnection.set("scm:git:git@github.com:DNAlchemist/gitlab-code-quality-gradle-plugin.git")
-                        url.set("https://github.com/DNAlchemist/gitlab-code-quality-gradle-plugin")
-                    }
                 }
             }
         }
