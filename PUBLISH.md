@@ -4,7 +4,7 @@
 
 Sonatype retired the legacy OSSRH service (`oss.sonatype.org` / `s01.oss.sonatype.org`) in 2025. All publishing now goes through the **Central Portal** ([central.sonatype.com](https://central.sonatype.com/)).
 
-Artifact coordinates: **`io.github.dnalchemist:gitlab-code-quality-gradle-plugin`** (Gradle plugin marker: **`io.github.dnalchemist.gitlab-code-quality-gradle`**).
+Artifact coordinates: **`io.github.dnalchemist:gitlab-code-quality-gradle-plugin`** (Gradle plugin marker: **`io.github.dnalchemist.gitlab-code-quality`**).
 
 ### 1. Claim the namespace
 
@@ -82,13 +82,13 @@ After uploading, open [central.sonatype.com](https://central.sonatype.com/) → 
 
 ---
 
-## Gradle Plugin Portal (`io.github.dnalchemist.gitlab-code-quality-gradle`)
+## Gradle Plugin Portal (`io.github.dnalchemist.gitlab-code-quality`)
 
 In addition to Maven Central, releases are published to the [Gradle Plugin Portal](https://plugins.gradle.org/) so consumers can apply the plugin with a single line, no extra `pluginManagement` repository needed:
 
 ```kotlin
 plugins {
-    id("io.github.dnalchemist.gitlab-code-quality-gradle") version "1.0.0"
+    id("io.github.dnalchemist.gitlab-code-quality") version "1.0.0"
 }
 ```
 

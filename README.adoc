@@ -38,7 +38,7 @@ The plugin attaches to any project that has a JVM toolchain plugin applied — `
 ----
 plugins {
     java
-    id("io.github.dnalchemist.gitlab-code-quality-gradle") version "{version_stable}"
+    id("io.github.dnalchemist.gitlab-code-quality") version "{version_stable}"
 }
 ----
 
@@ -171,6 +171,6 @@ pluginManagement {
 // build.gradle.kts
 plugins {
     java
-    id("io.github.dnalchemist.gitlab-code-quality-gradle") version "{version_snapshot}"
+    id("io.github.dnalchemist.gitlab-code-quality") version "{version_snapshot}"
 }
 ----

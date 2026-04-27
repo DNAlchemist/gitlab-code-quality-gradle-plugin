@@ -102,7 +102,7 @@ gradlePlugin {
     vcsUrl.set("https://github.com/DNAlchemist/gitlab-code-quality-gradle-plugin.git")
     plugins {
         create("gitlabCodeQuality") {
-            id = "io.github.dnalchemist.gitlab-code-quality-gradle"
+            id = "io.github.dnalchemist.gitlab-code-quality"
             displayName = "GitLab Code Quality"
             description =
                 "Converts SpotBugs and Checkstyle XML reports into GitLab code quality JSON."
