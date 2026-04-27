@@ -1,18 +1,20 @@
 # Release procedure
 
-## Maven Central (`io.github.dnalchemist`)
+## Maven Central via the Sonatype Central Portal (`io.github.dnalchemist`)
 
-Artifact coordinates: **`io.github.dnalchemist:gitlab-code-quality-gradle-plugin`** (Gradle plugin marker: **`io.github.dnalchemist.gitlab-code-quality-gradle`**). Make sure the `pom { scm { ... } url { ... } }` block in `build.gradle.kts` points to your actual GitHub repository.
+Sonatype retired the legacy OSSRH service (`oss.sonatype.org` / `s01.oss.sonatype.org`) in 2025. All publishing now goes through the **Central Portal** ([central.sonatype.com](https://central.sonatype.com/)).
 
-### 1. Claim the namespace on Central
+Artifact coordinates: **`io.github.dnalchemist:gitlab-code-quality-gradle-plugin`** (Gradle plugin marker: **`io.github.dnalchemist.gitlab-code-quality-gradle`**).
+
+### 1. Claim the namespace
 
 1. Sign in to [central.sonatype.com](https://central.sonatype.com/) (typically via GitHub).
-2. Create the namespace **`io.github.dnalchemist`**. For `io.github.*` namespaces it is usually enough to confirm ownership of the matching GitHub account (`dnalchemist`).
+2. Create the namespace **`io.github.dnalchemist`**. For `io.github.*` namespaces it is enough to confirm ownership of the matching GitHub account (`dnalchemist`).
 3. Wait for approval.
 
-### 2. Publishing credentials for `gradle publish`
+### 2. Credentials
 
-In [central.sonatype.com](https://central.sonatype.com/) generate a **User Token** (a username/password pair).
+Generate a **User Token** at [central.sonatype.com](https://central.sonatype.com/) (Account → User Tokens). It produces a username/password pair distinct from your login.
 
 Either store them locally in `~/.gradle/gradle.properties`:
 
@@ -28,27 +30,85 @@ ORG_GRADLE_PROJECT_ossrhUsername
 ORG_GRADLE_PROJECT_ossrhPassword
 ```
 
-### 3. Sonatype host
+### 3. Snapshots
 
-New projects publish to **`s01.oss.sonatype.org`** (the default in `build.gradle.kts`). If your account is still on the legacy OSSRH host, override it via `gradle.properties`:
+Versions ending in **`-SNAPSHOT`** are published directly with the bundled `maven-publish` plugin to the Central Portal snapshot endpoint:
 
-```properties
-sonatype.host=oss.sonatype.org
+```
+https://central.sonatype.com/repository/maven-snapshots/
 ```
 
-### 4. Releasing to Maven Central (non-SNAPSHOT)
-
-Maven Central requires release artifacts to be **GPG-signed**. Apply the [Signing Plugin](https://docs.gradle.org/current/userguide/signing_plugin.html) and configure a key (locally, or via `ORG_GRADLE_PROJECT_signing.*` / in-memory PGP in CI), then run:
+Already configured in `build.gradle.kts`. Just run:
 
 ```bash
-./gradlew clean publish
+./gradlew publish
 ```
 
-After uploading, open [central.sonatype.com](https://central.sonatype.com/) → **Deployments**, wait for validation and click **Publish** (or use the classic Nexus Staging UI if your account is still on legacy OSSRH).
+Snapshot uploads do not require GPG signing. The Central Portal UI does not browse snapshots; verify by fetching `maven-metadata.xml` directly:
 
-### 5. Snapshots
+```
+https://central.sonatype.com/repository/maven-snapshots/io/github/dnalchemist/gitlab-code-quality-gradle-plugin/1.2.0-SNAPSHOT/maven-metadata.xml
+```
 
-Versions ending in **`-SNAPSHOT`** go to the snapshot repository (`…/content/repositories/snapshots/`). Signing is usually not required for snapshots.
+### 4. Releases
+
+Direct HTTP PUT for releases is **not** accepted by the Central Portal — uploads happen through a Publisher API that takes a single signed zip bundle. The plain `maven-publish` plugin cannot do this on its own.
+
+Use a dedicated plugin. Recommended: [`com.gradleup.nmcp`](https://www.gradleup.com/nmcp/).
+
+Add to `settings.gradle.kts`:
+
+```kotlin
+plugins {
+    id("com.gradleup.nmcp.settings") version "1.4.4"
+}
+
+nmcpSettings {
+    centralPortal {
+        username = providers.gradleProperty("ossrhUsername").orNull
+        password = providers.gradleProperty("ossrhPassword").orNull
+        // USER_MANAGED requires a manual "Publish" click in the portal UI.
+        // Use AUTOMATIC to release straight to Central after validation.
+        publishingType = "USER_MANAGED"
+    }
+}
+```
+
+GPG signing is required for releases. Apply Gradle's [`signing`](https://docs.gradle.org/current/userguide/signing_plugin.html) plugin in `build.gradle.kts`:
+
+```kotlin
+plugins {
+    `java-gradle-plugin`
+    `maven-publish`
+    signing
+}
+
+signing {
+    val signingKey: String? by project
+    val signingPassword: String? by project
+    if (signingKey != null) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    } else {
+        useGpgCmd()
+    }
+    sign(publishing.publications)
+}
+```
+
+In CI the in-memory key is the easiest path:
+
+```text
+ORG_GRADLE_PROJECT_signingKey       # ASCII-armored private key
+ORG_GRADLE_PROJECT_signingPassword  # passphrase
+```
+
+Then publish:
+
+```bash
+./gradlew publishAggregationToCentralPortal
+```
+
+After the bundle is uploaded, open [central.sonatype.com](https://central.sonatype.com/) → **Deployments**, wait for validation and click **Publish**. With `publishingType = "AUTOMATIC"` the plugin does that step too.
 
 ---
 
@@ -77,4 +137,4 @@ git commit -am "Preparing for next development iteration"
 git push --follow-tags
 ```
 
-Publish: `./gradlew build publish` (with signing enabled for releases — see above).
+Snapshots: `./gradlew publish`. Releases: `./gradlew publishAggregationToCentralPortal` (with `nmcp` and signing applied — see step 4 above).

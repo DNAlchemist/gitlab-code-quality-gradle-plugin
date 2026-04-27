@@ -10,11 +10,6 @@ repositories {
 group = "io.github.dnalchemist"
 version = "1.2.0-SNAPSHOT"
 
-// New Sonatype namespaces (incl. io.github.*) use s01. Legacy OSSRH: -Psonatype.host=oss.sonatype.org
-val sonatypeHost =
-    findProperty("sonatype.host")?.toString()?.trim()?.takeIf { it.isNotEmpty() }
-        ?: "s01.oss.sonatype.org"
-
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(11))
@@ -113,15 +108,19 @@ gradlePlugin {
     }
 }
 
+// Sonatype shut down legacy OSSRH (oss.sonatype.org / s01.oss.sonatype.org) in
+// 2025. Snapshots are now hosted by the Central Portal at the URL below and can
+// still be published with the standard `maven-publish` plugin via HTTP PUT.
+//
+// Release uploads to the Central Portal go through a different Publisher API
+// (zip bundle), which `maven-publish` cannot do on its own. For releases apply
+// a dedicated plugin such as `com.gradleup.nmcp`
+// (https://www.gradleup.com/nmcp/) and run `publishAggregationToCentralPortal`.
 publishing {
     repositories {
         maven {
-            name = "sonatype"
-            val releasesUrl =
-                uri("https://$sonatypeHost/service/local/staging/deploy/maven2/")
-            val snapshotsUrl =
-                uri("https://$sonatypeHost/content/repositories/snapshots/")
-            url = if (version.toString().endsWith("-SNAPSHOT")) snapshotsUrl else releasesUrl
+            name = "centralSnapshots"
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
             credentials {
                 username = findProperty("ossrhUsername")?.toString()
                 password = findProperty("ossrhPassword")?.toString()
