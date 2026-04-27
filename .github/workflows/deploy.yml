@@ -10,6 +10,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: central-release
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 17
