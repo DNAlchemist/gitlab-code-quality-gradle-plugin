@@ -1,6 +1,9 @@
 plugins {
     `java-gradle-plugin`
     `maven-publish`
+    signing
+    id("com.gradleup.nmcp") version "1.4.4"
+    id("com.gradleup.nmcp.aggregation") version "1.4.4"
 }
 
 repositories {
@@ -109,13 +112,10 @@ gradlePlugin {
 }
 
 // Sonatype shut down legacy OSSRH (oss.sonatype.org / s01.oss.sonatype.org) in
-// 2025. Snapshots are now hosted by the Central Portal at the URL below and can
-// still be published with the standard `maven-publish` plugin via HTTP PUT.
-//
-// Release uploads to the Central Portal go through a different Publisher API
-// (zip bundle), which `maven-publish` cannot do on its own. For releases apply
-// a dedicated plugin such as `com.gradleup.nmcp`
-// (https://www.gradleup.com/nmcp/) and run `publishAggregationToCentralPortal`.
+// 2025. Snapshots are still uploaded with the standard `maven-publish` plugin
+// (HTTP PUT) — but to the new Central Portal endpoint. Releases are uploaded
+// as a signed zip bundle through the Central Portal Publisher API, which is
+// what the `com.gradleup.nmcp` plugin wires up via `publishAllPublicationsToCentralPortal`.
 publishing {
     repositories {
         maven {
@@ -129,7 +129,38 @@ publishing {
     }
 }
 
+nmcpAggregation {
+    centralPortal {
+        username = providers.gradleProperty("ossrhUsername").orNull
+        password = providers.gradleProperty("ossrhPassword").orNull
+        // USER_MANAGED: upload + validate, then click "Publish" in the portal UI.
+        // Switch to "AUTOMATIC" to release straight to Central after validation.
+        publishingType = "USER_MANAGED"
+    }
+}
+
+dependencies {
+    // Single-project build: aggregate this project's own publications.
+    nmcpAggregation(project(":"))
+}
+
+signing {
+    val signingKey: String? by project
+    val signingPassword: String? by project
+    if (!signingKey.isNullOrBlank()) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+    }
+    // Snapshots do not require a signature; only enforce signing for releases
+    // so local/CI snapshot publishes work without a key configured.
+    isRequired = !version.toString().endsWith("-SNAPSHOT")
+}
+
 afterEvaluate {
+    signing {
+        // Both `pluginMaven` and the plugin marker publication are registered
+        // by the java-gradle-plugin in afterEvaluate, so wire signing here.
+        sign(publishing.publications)
+    }
     publishing {
         publications {
             named<MavenPublication>("pluginMaven") {
