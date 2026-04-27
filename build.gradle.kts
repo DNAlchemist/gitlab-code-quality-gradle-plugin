@@ -122,8 +122,8 @@ publishing {
             name = "centralSnapshots"
             url = uri("https://central.sonatype.com/repository/maven-snapshots/")
             credentials {
-                username = findProperty("ossrhUsername")?.toString()
-                password = findProperty("ossrhPassword")?.toString()
+                username = findProperty("centralPortalUsername")?.toString()
+                password = findProperty("centralPortalPassword")?.toString()
             }
         }
     }
@@ -131,8 +131,8 @@ publishing {
 
 nmcpAggregation {
     centralPortal {
-        username = providers.gradleProperty("ossrhUsername").orNull
-        password = providers.gradleProperty("ossrhPassword").orNull
+        username = providers.gradleProperty("centralPortalUsername").orNull
+        password = providers.gradleProperty("centralPortalPassword").orNull
         // USER_MANAGED: upload + validate, then click "Publish" in the portal UI.
         // Switch to "AUTOMATIC" to release straight to Central after validation.
         publishingType = "USER_MANAGED"

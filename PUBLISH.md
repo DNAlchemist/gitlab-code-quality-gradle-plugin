@@ -19,15 +19,15 @@ Generate a **User Token** at [central.sonatype.com](https://central.sonatype.com
 Either store them locally in `~/.gradle/gradle.properties`:
 
 ```properties
-ossrhUsername=your_token_username
-ossrhPassword=your_token_password
+centralPortalUsername=your_token_username
+centralPortalPassword=your_token_password
 ```
 
 …or expose them through environment variables in CI (already wired up in `.github/workflows/deploy.yml`):
 
 ```text
-ORG_GRADLE_PROJECT_ossrhUsername
-ORG_GRADLE_PROJECT_ossrhPassword
+ORG_GRADLE_PROJECT_centralPortalUsername  # GitHub secret CENTRAL_PORTAL_USERNAME
+ORG_GRADLE_PROJECT_centralPortalPassword  # GitHub secret CENTRAL_PORTAL_PASSWORD
 ```
 
 ### 3. Snapshots
@@ -56,59 +56,29 @@ Direct HTTP PUT for releases is **not** accepted by the Central Portal — uploa
 
 Use a dedicated plugin. Recommended: [`com.gradleup.nmcp`](https://www.gradleup.com/nmcp/).
 
-Add to `settings.gradle.kts`:
-
-```kotlin
-plugins {
-    id("com.gradleup.nmcp.settings") version "1.4.4"
-}
-
-nmcpSettings {
-    centralPortal {
-        username = providers.gradleProperty("ossrhUsername").orNull
-        password = providers.gradleProperty("ossrhPassword").orNull
-        // USER_MANAGED requires a manual "Publish" click in the portal UI.
-        // Use AUTOMATIC to release straight to Central after validation.
-        publishingType = "USER_MANAGED"
-    }
-}
-```
-
-GPG signing is required for releases. Apply Gradle's [`signing`](https://docs.gradle.org/current/userguide/signing_plugin.html) plugin in `build.gradle.kts`:
-
-```kotlin
-plugins {
-    `java-gradle-plugin`
-    `maven-publish`
-    signing
-}
-
-signing {
-    val signingKey: String? by project
-    val signingPassword: String? by project
-    if (signingKey != null) {
-        useInMemoryPgpKeys(signingKey, signingPassword)
-    } else {
-        useGpgCmd()
-    }
-    sign(publishing.publications)
-}
-```
-
-In CI the in-memory key is the easiest path:
-
-```text
-ORG_GRADLE_PROJECT_signingKey       # ASCII-armored private key
-ORG_GRADLE_PROJECT_signingPassword  # passphrase
-```
-
-Then publish:
+The repository already wires `com.gradleup.nmcp` and `com.gradleup.nmcp.aggregation` 1.4.4 in `build.gradle.kts`. They expose:
 
 ```bash
 ./gradlew publishAggregationToCentralPortal
 ```
 
-After the bundle is uploaded, open [central.sonatype.com](https://central.sonatype.com/) → **Deployments**, wait for validation and click **Publish**. With `publishingType = "AUTOMATIC"` the plugin does that step too.
+GPG signing is required for releases. The `signing` plugin is already applied; supply the key via Gradle properties (in `~/.gradle/gradle.properties`):
+
+```properties
+signingKey=-----BEGIN PGP PRIVATE KEY BLOCK-----\n...\n-----END PGP PRIVATE KEY BLOCK-----\n
+signingPassword=your_gpg_passphrase
+```
+
+…or in CI:
+
+```text
+ORG_GRADLE_PROJECT_signingKey       # GitHub secret SIGNING_KEY (ASCII-armored private key)
+ORG_GRADLE_PROJECT_signingPassword  # GitHub secret SIGNING_PASSWORD (passphrase)
+```
+
+Generate the ASCII-armored key with `gpg --armor --export-secret-keys <KEYID>`. Snapshots have `isRequired = false`, so missing keys do not break snapshot publishes — they only block `-` (non-SNAPSHOT) versions.
+
+After uploading, open [central.sonatype.com](https://central.sonatype.com/) → **Deployments**, wait for validation and click **Publish**. Switch `publishingType` to `"AUTOMATIC"` in `nmcpAggregation.centralPortal` if you want the plugin to release without that manual gate.
 
 ---
 
