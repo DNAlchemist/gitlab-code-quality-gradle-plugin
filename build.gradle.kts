@@ -149,7 +149,15 @@ signing {
     val signingKey: String? by project
     val signingPassword: String? by project
     if (!signingKey.isNullOrBlank()) {
-        useInMemoryPgpKeys(signingKey, signingPassword)
+        // Treat blank passphrase the same as no passphrase. GitHub Actions does
+        // not let you store a literally empty environment secret, so users who
+        // generated a key without protection often store a single space or
+        // newline as SIGNING_PASSWORD; passing that through to GPG would make
+        // it try to unlock the key with that exact garbage. Gradle's
+        // `useInMemoryPgpKeys` rejects a `null` password but accepts "" for
+        // unprotected keys, so we collapse blank input to an empty string.
+        val passphrase = signingPassword?.takeIf { it.isNotBlank() }.orEmpty()
+        useInMemoryPgpKeys(signingKey, passphrase)
     }
     // Snapshots do not require a signature; only enforce signing for releases
     // so local/CI snapshot publishes work without a key configured.
