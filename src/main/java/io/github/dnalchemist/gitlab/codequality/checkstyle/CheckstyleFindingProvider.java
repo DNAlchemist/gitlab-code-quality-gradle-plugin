@@ -1,8 +1,8 @@
-package de.chkal.maven.gitlab.codequality.checkstyle;
+package io.github.dnalchemist.gitlab.codequality.checkstyle;
 
-import de.chkal.maven.gitlab.codequality.Finding;
-import de.chkal.maven.gitlab.codequality.Finding.Severity;
-import de.chkal.maven.gitlab.codequality.FindingProvider;
+import io.github.dnalchemist.gitlab.codequality.Finding;
+import io.github.dnalchemist.gitlab.codequality.Finding.Severity;
+import io.github.dnalchemist.gitlab.codequality.FindingProvider;
 import jakarta.xml.bind.DatatypeConverter;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBElement;

@@ -1,12 +1,12 @@
-package de.chkal.maven.gitlab.codequality;
+package io.github.dnalchemist.gitlab.codequality;
 
-import org.apache.maven.plugin.logging.Log;
+import org.gradle.api.logging.Logger;
 
-public class Logger {
+public final class PluginLogger {
 
-  private final Log log;
+  private final Logger log;
 
-  public Logger(Log log) {
+  public PluginLogger(Logger log) {
     this.log = log;
   }
 
@@ -15,7 +15,7 @@ public class Logger {
   }
 
   public void info(String pattern, Object... arguments) {
-    log.info(buildMessage(pattern, arguments));
+    log.lifecycle(buildMessage(pattern, arguments));
   }
 
   public void warn(String pattern, Object... arguments) {
@@ -26,7 +26,7 @@ public class Logger {
     log.error(buildMessage(pattern, arguments));
   }
 
-  private String buildMessage(String pattern, Object... arguments) {
+  private static String buildMessage(String pattern, Object... arguments) {
     String message = pattern;
     for (Object argument : arguments) {
       message = message.replaceFirst("\\{}", argument != null ? argument.toString() : "null");

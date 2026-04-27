@@ -1,4 +1,4 @@
-package de.chkal.maven.gitlab.codequality;
+package io.github.dnalchemist.gitlab.codequality;
 
 import java.io.InputStream;
 import java.util.List;

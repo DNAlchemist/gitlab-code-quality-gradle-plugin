@@ -1,9 +1,9 @@
-package de.chkal.maven.gitlab.codequality.checkstyle;
+package io.github.dnalchemist.gitlab.codequality.checkstyle;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import de.chkal.maven.gitlab.codequality.Finding;
-import de.chkal.maven.gitlab.codequality.Finding.Severity;
+import io.github.dnalchemist.gitlab.codequality.Finding;
+import io.github.dnalchemist.gitlab.codequality.Finding.Severity;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;

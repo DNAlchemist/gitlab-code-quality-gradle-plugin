@@ -2,122 +2,49 @@
 :version_stable: 1.1.0
 :version_snapshot: 1.2.0-SNAPSHOT
 
-This Maven plugin allows you to transform XML reports created by code quality tools like
+This Gradle plugin transforms XML reports produced by tools such as
 https://spotbugs.github.io/[SpotBugs] and https://checkstyle.org/[Checkstyle]
-into a JSON format supported by https://about.gitlab.com/[GitLab] to displayed
-identified issues in the merge request widget.
+into JSON in the format expected by https://about.gitlab.com/[GitLab], so that
+findings can be shown in the merge request code quality widget.
 
 image::.readme/gitlab-merge-request-widget.png[]
 
 == Usage
 
-=== Step 1: Set up SpotBugs and/or Checkstyle
+=== Step 1: Configure SpotBugs and/or Checkstyle
 
-As this plugin processes XML reports of other code quality tools, you have to set up
-the Maven plugins for SpotBugs and/or Checkstyle first.
+The plugin only reads XML produced by other tools. Configure the SpotBugs and/or Checkstyle Gradle plugins (or any setup that writes compatible XML) so reports exist before `+check+` runs.
 
-Such a setup could look like this:
+Default input locations are `+build/spotbugsXml.xml+` and `+build/checkstyle-result.xml+`. Point your SpotBugs/Checkstyle tasks at those paths, or override the `+generateGitLabCodeQualityReport+` task properties (see <<advanced-configuration>>).
 
-[source,xml,subs="+attributes"]
+=== Step 2: Apply this plugin
+
+The `+java+` plugin must be applied on the same project (directly or transitively, for example via Kotlin/JVM). Then add this plugin to your `+build.gradle.kts+` (or `+build.gradle+`):
+
+[source,kotlin,subs="+attributes"]
 ----
-<project>
-  <build>
-    <plugins>
-
-      <!-- SpotBugs -->
-      <plugin>
-        <groupId>com.github.spotbugs</groupId>
-        <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>4.7.3.3</version>
-        <executions>
-          <execution>
-            <phase>verify</phase>
-            <goals>
-              <goal>spotbugs</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-
-      <!-- Checkstyle -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-checkstyle-plugin</artifactId>
-        <version>3.2.1</version>
-        <executions>
-          <execution>
-            <phase>verify</phase>
-            <goals>
-              <goal>checkstyle</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <configLocation>
-            https://raw.githubusercontent.com/checkstyle/checkstyle/master/src/main/resources/google_checks.xml
-          </configLocation>
-          <linkXRef>false</linkXRef>
-        </configuration>
-        <dependencies>
-          <dependency>
-            <groupId>com.puppycrawl.tools</groupId>
-            <artifactId>checkstyle</artifactId>
-            <version>10.9.3</version>
-          </dependency>
-        </dependencies>
-      </plugin>
-
-    </plugins>
-  </build>
-</project>
+plugins {
+    java
+    id("io.github.dnalchemist.gitlab-code-quality") version "{version_stable}"
+}
 ----
 
-=== Step 2: Add the plugin to your pom.xml
+By default the plugin reads:
 
-Now add the following plugin definition to your `pom.xml`:
+* `+build/spotbugsXml.xml+`
+* `+build/checkstyle-result.xml+`
 
-[source,xml,subs="+attributes"]
-----
-<project>
-  <build>
-    <plugins>
+and writes:
 
-      <!-- ====================================================== -->
-      <!--  maven-checkstyle-plugin, spotbugs-maven-plugin, etc.  -->
-      <!-- ====================================================== -->
+* `+build/gl-code-quality-report.json+`
 
-      <plugin>
-        <groupId>de.chkal.maven</groupId>
-        <artifactId>gitlab-code-quality-plugin</artifactId>
-        <version>{version_stable}</version>
-        <executions>
-          <execution>
-            <phase>verify</phase>
-            <goals>
-              <goal>generate</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
+when the `+check+` lifecycle runs (the `+generateGitLabCodeQualityReport+` task is attached to `+check+`).
 
-    </plugins>
-  </build>
-</project>
-----
+If the XML files are missing or empty, the task still completes and logs that no report was found.
 
-Without any explicit configuration, the plugin will look for XML reports in the following locations:
+=== Step 3: Publish the report to GitLab CI
 
-* `target/spotbugsXml.xml`
-* `target/checkstyle-result.xml`
-
-If corresponding XML files are found and contain at least one issue, the plugin will
-generate the following JSON file:
-
-* `target/gl-code-quality-report.json`
-
-=== Step 3: Add the plugin to your pom.xml
-
-Finally, you will have to tell GitLab about generated JSON file by modifying your `.gitlab-ci.yml` file like this:
+Point GitLab at the generated JSON, for example:
 
 [source,yaml]
 ----
@@ -125,82 +52,36 @@ build:
   stage: build
   image: ...
   script:
-    - ...
+    - ./gradlew check
   artifacts:
     reports:
       codequality:
-        - target/gl-code-quality-report.json
+        - build/gl-code-quality-report.json
 ----
 
-With these changes, GitLab will show all findings in the merge request widget.
-
+[[advanced-configuration]]
 == Advanced configuration
 
-In most cases, no explicit configuration of the plugin is required.
-But depending on your needs, fine-tuning the configuration may be valuable.
+All options are properties on the `+generateGitLabCodeQualityReport+` task. Example:
 
-The following example shows all available configuration parameters with their
-default values:
-
-[source,xml,subs="+attributes"]
+[source,kotlin,subs="+attributes"]
 ----
-<project>
+import io.github.dnalchemist.gitlab.codequality.GenerateGitLabCodeQualityReportTask
 
-  <build>
-    <plugins>
-
-      <!-- ====================================================== -->
-      <!--  maven-checkstyle-plugin, spotbugs-maven-plugin, etc.  -->
-      <!-- ====================================================== -->
-
-      <plugin>
-        <groupId>de.chkal.maven</groupId>
-        <artifactId>gitlab-code-quality-plugin</artifactId>
-        <version>{version_stable}</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>generate</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-
-          <!-- Whether to enable support for SpotBugs -->
-          <spotbugsEnabled>true</spotbugsEnabled>
-
-          <!-- Location of the SpotBugs XML report -->
-          <spotbugsInputFile>${project.build.directory}/spotbugsXml.xml</spotbugsInputFile>
-
-          <!-- Whether to enable support for Checkstyle -->
-          <checkstyleEnabled>true</checkstyleEnabled>
-
-          <!-- Location of the Checkstyle XML report -->
-          <checkstyleInputFile>${project.build.directory}/checkstyle-result.xml</checkstyleInputFile>
-
-          <!-- Location of the JSON output file -->
-          <outputFile>${project.build.directory}/gl-code-quality-report.json</outputFile>
-
-        </configuration>
-      </plugin>
-
-    </plugins>
-  </build>
-</project>
+tasks.named<GenerateGitLabCodeQualityReportTask>("generateGitLabCodeQualityReport") {
+    spotbugsEnabled.set(true)
+    spotbugsInputFile.set(layout.buildDirectory.file("spotbugsXml.xml"))
+    checkstyleEnabled.set(true)
+    checkstyleInputFile.set(layout.buildDirectory.file("checkstyle-result.xml"))
+    outputFile.set(layout.buildDirectory.file("gl-code-quality-report.json"))
+}
 ----
 
-== Multi-module configuration
+== Multi-project builds
 
-If you want to use this plugin in a Maven multi-module project, you can simply add the plugin
-to one of the parent POMs which ensures that the plugin is invoked for all reactor modules.
-This will create one JSON output file for each module.
+Apply the plugin in subprojects that run SpotBugs/Checkstyle. Each project produces its own JSON file under its `+build/+` directory.
 
-Unfortunately, GitLab only supports a single code quality JSON file per job
-(see https://gitlab.com/gitlab-org/gitlab/-/issues/9014[this issues] for details).
-To work around this limitation, you can use https://stedolan.github.io/jq/[jq] in your
-pipeline to merge all JSON reports into a single one and use this instead.
-
-See the following pipeline definition for an example:
+GitLab accepts one code quality file per job (see https://gitlab.com/gitlab-org/gitlab/-/issues/9014[this issue]). Merge reports with https://stedolan.github.io/jq/[jq], for example:
 
 [source,yaml]
 ----
@@ -210,76 +91,35 @@ build:
   before_script:
     - apt-get update && apt-get install -y jq
   script:
-    - ...
+    - ./gradlew check
   after_script:
-    - find . -name gl-code-quality-report.json -print | xargs cat | jq -s "add" > merged-gl-code-quality-report.json
+    - find . -name gl-code-quality-report.json -print0 | xargs -0 cat | jq -s "add" > merged-gl-code-quality-report.json
   artifacts:
     reports:
       codequality:
         - merged-gl-code-quality-report.json
 ----
 
-== CLI usage
+== Using snapshots
 
-The plugin may also be used and configured using the Maven CLI. Available configuration properties are:
+Snapshots are published to the Sonatype OSSRH snapshots repository. Add that repository for *plugin* resolution in `+settings.gradle.kts+`, then apply the snapshot version in your build script:
 
-* `glcqp.spotbugsEnabled`
-* `glcqp.spotbugsInputFile`
-* `glcqp.checkstyleEnabled`
-* `glcqp.checkstyeInputFile`
-* `glcqp.outputFile`
-
-They are used like this:
-
-[source,shell,subs="+attributes"]
+[source,kotlin,subs="+attributes"]
 ----
-mvn de.chkal.maven:gitlab-code-quality-plugin:{version_stable}:check \
-    -Dglcqp.spotbugsEnabled=true \
-    -Dglcqp.spotbugsInputFile=target/spotbugsXml.xml \
-    -Dglcqp.checkstyleEnabled=true \
-    -Dglcqp.checkstyeInputFile=target/checkstyle-result.xml \
-    -Dglcqp.outputFile=target/gl-code-quality-report.json
+// settings.gradle.kts
+pluginManagement {
+    repositories {
+        gradlePluginPortal()
+        maven { url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/") }
+    }
+}
 ----
 
-== Using the latest snapshots
-
-The latest snapshots of this plugin are deployed to the Sonatype OSSRH repository.
-To use these latest snapshots, you will have to modify your `pom.xml` like this:
-
-[source,xml,subs="+attributes"]
+[source,kotlin,subs="+attributes"]
 ----
-<project>
-
-  <build>
-    <plugins>
-
-      <!-- ====================================================== -->
-      <!--  maven-checkstyle-plugin, spotbugs-maven-plugin, etc.  -->
-      <!-- ====================================================== -->
-
-      <plugin>
-        <groupId>de.chkal.maven</groupId>
-        <artifactId>gitlab-code-quality-plugin</artifactId>
-        <version>{version_snapshot}</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>generate</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
-
-    </plugins>
-  </build>
-
-  <!-- Sonatype snapshots for plugins -->
-  <pluginRepositories>
-    <pluginRepository>
-      <id>sonatype-ossrh-snapshots</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-    </pluginRepository>
-  </pluginRepositories>
-
-</project>
+// build.gradle.kts
+plugins {
+    java
+    id("io.github.dnalchemist.gitlab-code-quality") version "{version_snapshot}"
+}
 ----

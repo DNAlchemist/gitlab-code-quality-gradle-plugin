@@ -1,10 +1,10 @@
-package de.chkal.maven.gitlab.codequality.spotbugs;
+package io.github.dnalchemist.gitlab.codequality.spotbugs;
 
-import de.chkal.maven.gitlab.codequality.Finding;
-import de.chkal.maven.gitlab.codequality.Finding.Severity;
-import de.chkal.maven.gitlab.codequality.FindingProvider;
-import de.chkal.maven.gitlab.codequality.Logger;
-import de.chkal.maven.gitlab.codequality.spotbugs.BugCollection.BugInstance;
+import io.github.dnalchemist.gitlab.codequality.Finding;
+import io.github.dnalchemist.gitlab.codequality.Finding.Severity;
+import io.github.dnalchemist.gitlab.codequality.FindingProvider;
+import io.github.dnalchemist.gitlab.codequality.PluginLogger;
+import io.github.dnalchemist.gitlab.codequality.spotbugs.BugCollection.BugInstance;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBException;
 import jakarta.xml.bind.Unmarshaller;
@@ -14,16 +14,16 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import org.apache.maven.project.MavenProject;
 
 public class SpotbugsFindingProvider implements FindingProvider {
 
-  private final MavenProject project;
+  private final List<String> compileSourceRootsAbsolute;
   private final File repositoryRoot;
-  private final Logger log;
+  private final PluginLogger log;
 
-  public SpotbugsFindingProvider(MavenProject project, File repositoryRoot, Logger log) {
-    this.project = project;
+  public SpotbugsFindingProvider(
+      List<String> compileSourceRootsAbsolute, File repositoryRoot, PluginLogger log) {
+    this.compileSourceRootsAbsolute = compileSourceRootsAbsolute;
     this.repositoryRoot = repositoryRoot;
     this.log = log;
   }
@@ -81,7 +81,7 @@ public class SpotbugsFindingProvider implements FindingProvider {
 
   private Optional<Path> getAbsolutePath(String path) {
 
-    for (String compileSourceRoot : project.getCompileSourceRoots()) {
+    for (String compileSourceRoot : compileSourceRootsAbsolute) {
       Path absolutePath = Path.of(compileSourceRoot, path).toAbsolutePath();
       if (absolutePath.toFile().exists()) {
         return Optional.of(absolutePath);
