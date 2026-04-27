@@ -112,11 +112,6 @@ gradlePlugin {
     }
 }
 
-// Sonatype shut down legacy OSSRH (oss.sonatype.org / s01.oss.sonatype.org) in
-// 2025. Snapshots are still uploaded with the standard `maven-publish` plugin
-// (HTTP PUT) — but to the new Central Portal endpoint. Releases are uploaded
-// as a signed zip bundle through the Central Portal Publisher API, which is
-// what the `com.gradleup.nmcp` plugin wires up via `publishAllPublicationsToCentralPortal`.
 publishing {
     repositories {
         maven {
@@ -134,14 +129,11 @@ nmcpAggregation {
     centralPortal {
         username = providers.gradleProperty("centralPortalUsername").orNull
         password = providers.gradleProperty("centralPortalPassword").orNull
-        // USER_MANAGED: upload + validate, then click "Publish" in the portal UI.
-        // Switch to "AUTOMATIC" to release straight to Central after validation.
         publishingType = "USER_MANAGED"
     }
 }
 
 dependencies {
-    // Single-project build: aggregate this project's own publications.
     nmcpAggregation(project(":"))
 }
 
@@ -149,33 +141,21 @@ signing {
     val signingKey: String? by project
     val signingPassword: String? by project
     if (!signingKey.isNullOrBlank()) {
-        // Treat blank passphrase the same as no passphrase. GitHub Actions does
-        // not let you store a literally empty environment secret, so users who
-        // generated a key without protection often store a single space or
-        // newline as SIGNING_PASSWORD; passing that through to GPG would make
-        // it try to unlock the key with that exact garbage. Gradle's
-        // `useInMemoryPgpKeys` rejects a `null` password but accepts "" for
-        // unprotected keys, so we collapse blank input to an empty string.
+        // Empty passphrase ("") is a valid value for unprotected keys; null is not.
         val passphrase = signingPassword?.takeIf { it.isNotBlank() }.orEmpty()
         useInMemoryPgpKeys(signingKey, passphrase)
     }
-    // Snapshots do not require a signature; only enforce signing for releases
-    // so local/CI snapshot publishes work without a key configured.
     isRequired = !version.toString().endsWith("-SNAPSHOT")
 }
 
 afterEvaluate {
     signing {
-        // Both `pluginMaven` and the plugin marker publication are registered
-        // by the java-gradle-plugin in afterEvaluate, so wire signing here.
         sign(publishing.publications)
     }
 }
 
-// Central Portal validates every published Maven artifact, including the
-// auto-generated Gradle plugin marker pom (`<plugin-id>.gradle.plugin`).
-// Apply the shared metadata (url, license, developers, scm) to every
-// MavenPublication so the marker passes validation alongside `pluginMaven`.
+// Central Portal validates the plugin marker pom too, so apply the shared
+// metadata to every MavenPublication.
 publishing {
     publications {
         withType<MavenPublication>().configureEach {
@@ -203,8 +183,6 @@ publishing {
     }
 }
 
-// `pluginMaven` carries the actual jar + sources + javadoc, so give it a
-// human-readable name and description on top of the shared metadata.
 afterEvaluate {
     publishing {
         publications {

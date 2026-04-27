@@ -37,22 +37,14 @@ public abstract class GenerateGitLabCodeQualityReportTask extends DefaultTask {
   public abstract RegularFileProperty getCheckstyleInputFile();
 
   /**
-   * Source directories used to resolve {@code <SourceLine sourcepath="…"/>} entries from
-   * SpotBugs XML to absolute paths, which are then made relative to the git root for
-   * GitLab. The plugin's convention auto-populates this from
-   * {@code sourceSets.main.java.srcDirs} on plain Java/Kotlin-JVM projects. For Android
-   * or Kotlin Multiplatform builds — where there is no {@code main} source set on
-   * {@code JavaPluginExtension} — set this explicitly, e.g.
-   * {@code sourceRoots.setFrom(file("src/main/java"), file("src/main/kotlin"))}.
+   * Source directories used to map SpotBugs {@code sourcepath} entries to repo-relative
+   * paths. Defaults to {@code sourceSets.main.java.srcDirs}; set explicitly for Android
+   * or Kotlin Multiplatform layouts.
    */
   @Internal
   public abstract ConfigurableFileCollection getSourceRoots();
 
-  /**
-   * Project directory used as a starting point for git-root detection. Normally this is
-   * left at the convention ({@code project.layout.projectDirectory}); override it only
-   * for unusual layouts.
-   */
+  /** Starting point for git-root detection. Defaults to {@code project.layout.projectDirectory}. */
   @Internal
   public abstract DirectoryProperty getProjectDirectory();
 
@@ -97,11 +89,7 @@ public abstract class GenerateGitLabCodeQualityReportTask extends DefaultTask {
     File output = getOutputFile().getAsFile().get();
     output.getParentFile().mkdirs();
 
-    // The output file is always written, even when no findings exist (an empty JSON array
-    // `[]`). This keeps GitLab CI's `reports:codequality` artifact pattern stable across
-    // runs — it never fails an MR with "artifact not found" just because the build was
-    // clean. Consumers that prefer "no file = no findings" semantics should remove the
-    // file in a CI step when the array is empty.
+    // Always write the file, even with no findings — GitLab CI artifact pattern relies on it.
     try (FileOutputStream stream = new FileOutputStream(output)) {
       new ReportSerializer().write(findings, stream);
       log.info("GitLab code quality report for {} issue created: {}",
