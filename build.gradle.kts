@@ -104,7 +104,7 @@ tasks.withType<Javadoc>().configureEach {
 gradlePlugin {
     plugins {
         create("gitlabCodeQuality") {
-            id = "io.github.dnalchemist.gitlab-code-quality"
+            id = "io.github.dnalchemist.gitlab-code-quality-gradle"
             displayName = "GitLab Code Quality"
             description =
                 "Converts SpotBugs and Checkstyle XML reports into GitLab code quality JSON."
