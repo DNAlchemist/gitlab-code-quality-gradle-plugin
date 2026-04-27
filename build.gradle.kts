@@ -10,9 +10,6 @@ repositories {
     mavenCentral()
 }
 
-group = "io.github.dnalchemist"
-version = "1.2.0-SNAPSHOT"
-
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(11))
