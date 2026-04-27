@@ -55,6 +55,8 @@ when the `+check+` lifecycle runs (the `+generateGitLabCodeQualityReport+` task 
 
 If the XML files are missing or empty, the task still completes and logs that no report was found.
 
+NOTE: `+build/gl-code-quality-report.json+` is **always** written, including when no findings are detected. In that case its content is an empty JSON array `+[]+`. This keeps GitLab CI's `+reports:codequality+` artifact pattern stable across runs — it does not fail an MR with "artifact not found" just because the build was clean. If you prefer "no file = no findings" semantics, delete the file in a CI step when the array is empty.
+
 If you do not want the report task wired into `+check+` — for example when `+spotbugsMain+` runs with `+ignoreFailures = false+` and you want the GitLab JSON to be produced even when SpotBugs reports a failure — disable the auto-wiring and run the task explicitly:
 
 [source,kotlin]
@@ -100,6 +102,28 @@ tasks.named<GenerateGitLabCodeQualityReportTask>("generateGitLabCodeQualityRepor
     outputFile.set(layout.buildDirectory.file("gl-code-quality-report.json"))
 }
 ----
+
+=== Android and Kotlin Multiplatform projects
+
+The plugin looks up source directories for SpotBugs path resolution from `+sourceSets.main.java.srcDirs+`. That works on plain `+java+` / `+java-library+` / `+org.jetbrains.kotlin.jvm+` setups, but Android (`+com.android.application+`, `+com.android.library+`) and Kotlin Multiplatform projects do not register a `+main+` source set on `+JavaPluginExtension+`. In that case set `+sourceRoots+` explicitly so SpotBugs paths can still be resolved relative to the git root:
+
+[source,kotlin]
+----
+tasks.named<GenerateGitLabCodeQualityReportTask>("generateGitLabCodeQualityReport") {
+    // Android
+    sourceRoots.setFrom(file("src/main/java"), file("src/main/kotlin"))
+
+    // Or Kotlin Multiplatform — pick the source sets whose findings you want resolved
+    // sourceRoots.setFrom(
+    //     kotlin.sourceSets.getByName("commonMain").kotlin.srcDirs,
+    //     kotlin.sourceSets.getByName("jvmMain").kotlin.srcDirs,
+    // )
+}
+----
+
+Use `+setFrom(...)+` to replace the auto-detected default; `+from(...)+` would just append.
+
+If `+sourceRoots+` resolves to an empty list, the SpotBugs portion of the report falls back to the raw `+sourcepath+` from the XML — fingerprints stay valid, but file paths in the GitLab widget will not be relative to the repo root.
 
 == Multi-project builds
 

@@ -13,13 +13,13 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
+import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
-import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.OutputFile;
-import org.gradle.api.tasks.SourceSet;
 import org.gradle.api.tasks.TaskAction;
 
 public abstract class GenerateGitLabCodeQualityReportTask extends DefaultTask {
@@ -36,6 +36,26 @@ public abstract class GenerateGitLabCodeQualityReportTask extends DefaultTask {
   @Internal
   public abstract RegularFileProperty getCheckstyleInputFile();
 
+  /**
+   * Source directories used to resolve {@code <SourceLine sourcepath="…"/>} entries from
+   * SpotBugs XML to absolute paths, which are then made relative to the git root for
+   * GitLab. The plugin's convention auto-populates this from
+   * {@code sourceSets.main.java.srcDirs} on plain Java/Kotlin-JVM projects. For Android
+   * or Kotlin Multiplatform builds — where there is no {@code main} source set on
+   * {@code JavaPluginExtension} — set this explicitly, e.g.
+   * {@code sourceRoots.setFrom(file("src/main/java"), file("src/main/kotlin"))}.
+   */
+  @Internal
+  public abstract ConfigurableFileCollection getSourceRoots();
+
+  /**
+   * Project directory used as a starting point for git-root detection. Normally this is
+   * left at the convention ({@code project.layout.projectDirectory}); override it only
+   * for unusual layouts.
+   */
+  @Internal
+  public abstract DirectoryProperty getProjectDirectory();
+
   @OutputFile
   public abstract RegularFileProperty getOutputFile();
 
@@ -44,9 +64,19 @@ public abstract class GenerateGitLabCodeQualityReportTask extends DefaultTask {
 
     PluginLogger log = new PluginLogger(getLogger());
 
-    File repositoryRoot = getRepositoryRootDir(getProject().getProjectDir(), log);
+    File repositoryRoot = getRepositoryRootDir(getProjectDirectory().get().getAsFile(), log);
 
-    List<String> compileSourceRoots = collectMainJavaSourceRoots();
+    List<String> compileSourceRoots = getSourceRoots().getFiles().stream()
+        .filter(File::exists)
+        .map(File::getAbsolutePath)
+        .collect(Collectors.toList());
+
+    if (compileSourceRoots.isEmpty()) {
+      log.debug(
+          "No source roots resolved; SpotBugs paths will be reported as-is (no repository prefix). "
+              + "Set generateGitLabCodeQualityReport.sourceRoots explicitly for Android or "
+              + "Kotlin Multiplatform projects.");
+    }
 
     List<Finding> findings = new ArrayList<>();
 
@@ -67,6 +97,11 @@ public abstract class GenerateGitLabCodeQualityReportTask extends DefaultTask {
     File output = getOutputFile().getAsFile().get();
     output.getParentFile().mkdirs();
 
+    // The output file is always written, even when no findings exist (an empty JSON array
+    // `[]`). This keeps GitLab CI's `reports:codequality` artifact pattern stable across
+    // runs — it never fails an MR with "artifact not found" just because the build was
+    // clean. Consumers that prefer "no file = no findings" semantics should remove the
+    // file in a CI step when the array is empty.
     try (FileOutputStream stream = new FileOutputStream(output)) {
       new ReportSerializer().write(findings, stream);
       log.info("GitLab code quality report for {} issue created: {}",
@@ -75,18 +110,6 @@ public abstract class GenerateGitLabCodeQualityReportTask extends DefaultTask {
       throw new GradleException("Failed to write GitLab code quality report", e);
     }
 
-  }
-
-  private List<String> collectMainJavaSourceRoots() {
-    JavaPluginExtension javaExtension =
-        getProject().getExtensions().getByType(JavaPluginExtension.class);
-    return javaExtension.getSourceSets().getByName(SourceSet.MAIN_SOURCE_SET_NAME)
-        .getJava()
-        .getSrcDirs()
-        .stream()
-        .filter(File::exists)
-        .map(File::getAbsolutePath)
-        .collect(Collectors.toList());
   }
 
   private static List<Finding> executeProvider(FindingProvider provider,
