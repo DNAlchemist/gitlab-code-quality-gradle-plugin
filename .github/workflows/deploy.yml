@@ -19,6 +19,20 @@ jobs:
           java-version: 17
           distribution: temurin
           cache: gradle
+      - name: Verify Central Portal credentials are present
+        env:
+          USER: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
+          PASS: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
+        run: |
+          if [[ -z "$USER" ]]; then
+            echo "::error::Secret CENTRAL_PORTAL_USERNAME is empty or missing"
+            exit 1
+          fi
+          if [[ -z "$PASS" ]]; then
+            echo "::error::Secret CENTRAL_PORTAL_PASSWORD is empty or missing"
+            exit 1
+          fi
+          echo "Credentials are present (username length=${#USER}, password length=${#PASS})."
       - name: Build and publish snapshot
         run: ./gradlew build publish --no-daemon
         env:
