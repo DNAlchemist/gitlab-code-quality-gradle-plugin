@@ -15,11 +15,24 @@ image::.readme/gitlab-merge-request-widget.png[]
 
 The plugin only reads XML produced by other tools. Configure the SpotBugs and/or Checkstyle Gradle plugins (or any setup that writes compatible XML) so reports exist before `+check+` runs.
 
-Default input locations are `+build/spotbugsXml.xml+` and `+build/checkstyle-result.xml+`. Point your SpotBugs/Checkstyle tasks at those paths, or override the `+generateGitLabCodeQualityReport+` task properties (see <<advanced-configuration>>).
+Default input locations match the layout used by the official Gradle plugins: `+build/reports/spotbugs/main.xml+` and `+build/reports/checkstyle/main.xml+`. The SpotBugs Gradle plugin only emits XML when the XML report is explicitly enabled, so make sure your build does that:
+
+[source,kotlin]
+----
+spotbugs {
+    // ...
+}
+
+tasks.named<com.github.spotbugs.snom.SpotBugsTask>("spotbugsMain") {
+    reports.create("xml") { required.set(true) }
+}
+----
+
+If your reports live elsewhere, override the `+generateGitLabCodeQualityReport+` task properties (see <<advanced-configuration>>).
 
 === Step 2: Apply this plugin
 
-The `+java+` plugin must be applied on the same project (directly or transitively, for example via Kotlin/JVM). Then add this plugin to your `+build.gradle.kts+` (or `+build.gradle+`):
+The plugin attaches to any project that has a JVM toolchain plugin applied — `+java+`, `+java-library+`, `+application+`, `+org.jetbrains.kotlin.jvm+`, etc. Add this plugin to your `+build.gradle.kts+` (or `+build.gradle+`):
 
 [source,kotlin,subs="+attributes"]
 ----
@@ -31,8 +44,8 @@ plugins {
 
 By default the plugin reads:
 
-* `+build/spotbugsXml.xml+`
-* `+build/checkstyle-result.xml+`
+* `+build/reports/spotbugs/main.xml+`
+* `+build/reports/checkstyle/main.xml+`
 
 and writes:
 
@@ -41,6 +54,17 @@ and writes:
 when the `+check+` lifecycle runs (the `+generateGitLabCodeQualityReport+` task is attached to `+check+`).
 
 If the XML files are missing or empty, the task still completes and logs that no report was found.
+
+If you do not want the report task wired into `+check+` — for example when `+spotbugsMain+` runs with `+ignoreFailures = false+` and you want the GitLab JSON to be produced even when SpotBugs reports a failure — disable the auto-wiring and run the task explicitly:
+
+[source,kotlin]
+----
+gitlabCodeQuality {
+    wireIntoCheck.set(false)
+}
+----
+
+Then call `+./gradlew check generateGitLabCodeQualityReport+` (or run the task in your CI step that always executes, regardless of `+check+` outcome).
 
 === Step 3: Publish the report to GitLab CI
 
@@ -70,9 +94,9 @@ import io.github.dnalchemist.gitlab.codequality.GenerateGitLabCodeQualityReportT
 
 tasks.named<GenerateGitLabCodeQualityReportTask>("generateGitLabCodeQualityReport") {
     spotbugsEnabled.set(true)
-    spotbugsInputFile.set(layout.buildDirectory.file("spotbugsXml.xml"))
+    spotbugsInputFile.set(layout.buildDirectory.file("reports/spotbugs/main.xml"))
     checkstyleEnabled.set(true)
-    checkstyleInputFile.set(layout.buildDirectory.file("checkstyle-result.xml"))
+    checkstyleInputFile.set(layout.buildDirectory.file("reports/checkstyle/main.xml"))
     outputFile.set(layout.buildDirectory.file("gl-code-quality-report.json"))
 }
 ----
@@ -102,7 +126,7 @@ build:
 
 == Using snapshots
 
-Snapshots are published to the Sonatype OSSRH snapshots repository. Add that repository for *plugin* resolution in `+settings.gradle.kts+`, then apply the snapshot version in your build script:
+Snapshots are published to the Sonatype Central Portal snapshots repository. Add that repository for *plugin* resolution in `+settings.gradle.kts+`, then apply the snapshot version in your build script:
 
 [source,kotlin,subs="+attributes"]
 ----
@@ -110,7 +134,10 @@ Snapshots are published to the Sonatype OSSRH snapshots repository. Add that rep
 pluginManagement {
     repositories {
         gradlePluginPortal()
-        maven { url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/") }
+        maven {
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+            mavenContent { snapshotsOnly() }
+        }
     }
 }
 ----

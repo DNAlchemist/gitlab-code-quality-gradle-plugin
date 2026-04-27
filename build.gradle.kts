@@ -2,6 +2,7 @@ plugins {
     `java-gradle-plugin`
     `maven-publish`
     signing
+    id("com.gradle.plugin-publish") version "1.2.1"
     id("com.gradleup.nmcp") version "1.4.4"
     id("com.gradleup.nmcp.aggregation") version "1.4.4"
 }
@@ -97,6 +98,8 @@ tasks.withType<Javadoc>().configureEach {
 }
 
 gradlePlugin {
+    website.set("https://github.com/DNAlchemist/gitlab-code-quality-gradle-plugin")
+    vcsUrl.set("https://github.com/DNAlchemist/gitlab-code-quality-gradle-plugin.git")
     plugins {
         create("gitlabCodeQuality") {
             id = "io.github.dnalchemist.gitlab-code-quality-gradle"
@@ -104,6 +107,7 @@ gradlePlugin {
             description =
                 "Converts SpotBugs and Checkstyle XML reports into GitLab code quality JSON."
             implementationClass = "io.github.dnalchemist.gitlab.codequality.GitLabCodeQualityPlugin"
+            tags.set(listOf("gitlab", "code-quality", "spotbugs", "checkstyle", "ci"))
         }
     }
 }

@@ -82,7 +82,47 @@ After uploading, open [central.sonatype.com](https://central.sonatype.com/) → 
 
 ---
 
+## Gradle Plugin Portal (`io.github.dnalchemist.gitlab-code-quality-gradle`)
+
+In addition to Maven Central, releases are published to the [Gradle Plugin Portal](https://plugins.gradle.org/) so consumers can apply the plugin with a single line, no extra `pluginManagement` repository needed:
+
+```kotlin
+plugins {
+    id("io.github.dnalchemist.gitlab-code-quality-gradle") version "1.0.0"
+}
+```
+
+### 1. API key
+
+Sign in at [plugins.gradle.org](https://plugins.gradle.org/), open **API Keys** in the user menu, and copy the key/secret pair.
+
+Locally in `~/.gradle/gradle.properties`:
+
+```properties
+gradle.publish.key=your_api_key
+gradle.publish.secret=your_api_secret
+```
+
+In CI the `com.gradle.plugin-publish` plugin reads them from environment variables:
+
+```text
+GRADLE_PUBLISH_KEY     # GitHub secret GRADLE_PUBLISH_KEY
+GRADLE_PUBLISH_SECRET  # GitHub secret GRADLE_PUBLISH_SECRET
+```
+
+### 2. Publish
+
+```bash
+./gradlew publishPlugins -Pversion=1.0.0
+```
+
+The Plugin Portal does not accept `-SNAPSHOT` versions — only releases are pushed there. The release workflow (on `v*` tags) publishes to **both** Central Portal and Plugin Portal in the same run.
+
+---
+
 ## Versioning and tags
+
+Versions live in `gradle.properties` (`version=…`), so the build script no longer hardcodes them. The release workflow injects the tag-derived version via `-Pversion=X.Y.Z`, which overrides whatever default `gradle.properties` carries.
 
 Example variables:
 
@@ -91,20 +131,20 @@ export RELEASE_VERSION="1.0.0"
 export DEVELOP_VERSION="1.1.0-SNAPSHOT"
 ```
 
-Update `version` in `build.gradle.kts` and the `:version_stable:` / `:version_snapshot:` attributes in `README.adoc`, then:
+A typical cycle:
 
 ```bash
-# Set version = RELEASE_VERSION in build.gradle.kts and tweak README.adoc
+# Optional: bump the snapshot default for clarity
+sed -i '' "s/^version=.*/version=${DEVELOP_VERSION}/" gradle.properties
+# Update :version_stable: / :version_snapshot: in README.adoc as needed
 git commit -am "Preparing ${RELEASE_VERSION} release"
 git tag -a -m "v${RELEASE_VERSION}" "v${RELEASE_VERSION}"
-```
-
-Bump to the next development version:
-
-```bash
-# Set version = DEVELOP_VERSION in build.gradle.kts
-git commit -am "Preparing for next development iteration"
 git push --follow-tags
 ```
 
-Snapshots: `./gradlew publish`. Releases: `./gradlew publishAggregationToCentralPortal` (with `nmcp` and signing applied — see step 4 above).
+The CI workflow then:
+
+* on `master` push: publishes the version from `gradle.properties` (a `-SNAPSHOT`) to Central Portal snapshots.
+* on `vX.Y.Z` tag push: derives `X.Y.Z`, runs `publishAggregationToCentralPortal` (signed bundle to Central Portal Publisher API in `USER_MANAGED` state) **and** `publishPlugins` (signed release to Gradle Plugin Portal).
+
+For Central Portal, after the bundle uploads, click **Publish** in the Deployments view.
