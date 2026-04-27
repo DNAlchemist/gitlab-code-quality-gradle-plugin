@@ -1,1 +1,1 @@
-rootProject.name = "gitlab-code-quality-plugin"
+rootProject.name = "gitlab-code-quality-gradle-plugin"

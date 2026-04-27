@@ -135,7 +135,7 @@ afterEvaluate {
         publications {
             named<MavenPublication>("pluginMaven") {
                 pom {
-                    name.set("gitlab-code-quality-plugin")
+                    name.set("gitlab-code-quality-gradle-plugin")
                     description.set(
                         "Gradle plugin that converts SpotBugs and Checkstyle XML into GitLab code quality JSON."
                     )

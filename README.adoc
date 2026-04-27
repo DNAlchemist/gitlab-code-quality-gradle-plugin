@@ -1,4 +1,4 @@
-= gitlab-code-quality-plugin
+= gitlab-code-quality-gradle-plugin
 :version_stable: 1.1.0
 :version_snapshot: 1.2.0-SNAPSHOT
 

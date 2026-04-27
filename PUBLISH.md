@@ -2,7 +2,7 @@
 
 ## Maven Central (`io.github.dnalchemist`)
 
-Artifact coordinates: **`io.github.dnalchemist:gitlab-code-quality-plugin`** (Gradle plugin marker: **`io.github.dnalchemist.gitlab-code-quality`**). Make sure the `pom { scm { ... } url { ... } }` block in `build.gradle.kts` points to your actual GitHub repository.
+Artifact coordinates: **`io.github.dnalchemist:gitlab-code-quality-gradle-plugin`** (Gradle plugin marker: **`io.github.dnalchemist.gitlab-code-quality`**). Make sure the `pom { scm { ... } url { ... } }` block in `build.gradle.kts` points to your actual GitHub repository.
 
 ### 1. Claim the namespace on Central
 
