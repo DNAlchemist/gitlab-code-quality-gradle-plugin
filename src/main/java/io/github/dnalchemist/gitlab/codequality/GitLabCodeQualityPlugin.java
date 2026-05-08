@@ -14,6 +14,7 @@ import org.gradle.api.tasks.TaskProvider;
 public class GitLabCodeQualityPlugin implements Plugin<Project> {
 
   public static final String TASK_NAME = "generateGitLabCodeQualityReport";
+  public static final String AGGREGATE_TASK_NAME = "aggregateGitLabCodeQualityReport";
   public static final String EXTENSION_NAME = "gitlabCodeQuality";
 
   @Override
@@ -21,6 +22,7 @@ public class GitLabCodeQualityPlugin implements Plugin<Project> {
     GitLabCodeQualityExtension extension = project.getExtensions()
         .create(EXTENSION_NAME, GitLabCodeQualityExtension.class);
     extension.getWireIntoCheck().convention(true);
+    extension.getApplyToSubprojects().convention(false);
 
     TaskProvider<GenerateGitLabCodeQualityReportTask> reportTask = project.getTasks()
         .register(TASK_NAME, GenerateGitLabCodeQualityReportTask.class, task -> {
@@ -42,6 +44,40 @@ public class GitLabCodeQualityPlugin implements Plugin<Project> {
           task.getSourceRoots().from((Callable<Collection<File>>) () ->
               defaultSourceRoots(project));
         });
+
+    TaskProvider<AggregateGitLabCodeQualityReportTask> aggregateTask = project.getTasks()
+        .register(AGGREGATE_TASK_NAME, AggregateGitLabCodeQualityReportTask.class, task -> {
+          task.setGroup("verification");
+          task.setDescription(
+              "Merges GitLab code quality reports from this project and its subprojects "
+                  + "into a single JSON file.");
+          task.getOutputFile().convention(
+              project.getLayout().getBuildDirectory().file("gl-code-quality-aggregate.json"));
+          task.getInputReports().from(
+              reportTask.flatMap(GenerateGitLabCodeQualityReportTask::getOutputFile));
+          task.dependsOn(reportTask);
+        });
+
+    // Pick up any subproject (recursive) that also applies this plugin. `withType` is lazy
+    // and fires whenever the plugin is applied to that subproject — including auto-apply
+    // from `applyToSubprojects` below, which runs in afterEvaluate.
+    project.getSubprojects().forEach(sub ->
+        sub.getPlugins().withType(GitLabCodeQualityPlugin.class, plugin -> {
+          TaskProvider<GenerateGitLabCodeQualityReportTask> subReport = sub.getTasks()
+              .named(TASK_NAME, GenerateGitLabCodeQualityReportTask.class);
+          aggregateTask.configure(t -> {
+            t.getInputReports().from(
+                subReport.flatMap(GenerateGitLabCodeQualityReportTask::getOutputFile));
+            t.dependsOn(subReport);
+          });
+        }));
+
+    project.afterEvaluate(p -> {
+      if (Boolean.TRUE.equals(extension.getApplyToSubprojects().getOrElse(false))) {
+        project.getSubprojects().forEach(sub ->
+            sub.getPluginManager().apply(GitLabCodeQualityPlugin.class));
+      }
+    });
 
     project.getPlugins().withType(JavaBasePlugin.class, plugin ->
         project.getTasks().named(JavaBasePlugin.CHECK_TASK_NAME).configure(checkTask ->

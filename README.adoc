@@ -127,25 +127,50 @@ If `+sourceRoots+` resolves to an empty list, the SpotBugs portion of the report
 
 == Multi-project builds
 
-Apply the plugin in subprojects that run SpotBugs/Checkstyle. Each project produces its own JSON file under its `+build/+` directory.
+Each project that applies the plugin produces its own `+build/gl-code-quality-report.json+`. To get a single file for GitLab CI, the plugin also registers an `+aggregateGitLabCodeQualityReport+` task on every project — it merges the reports of that project and **all of its subprojects** (recursive) into one JSON file.
 
-GitLab accepts one code quality file per job (see https://gitlab.com/gitlab-org/gitlab/-/issues/9014[this issue]). Merge reports with https://stedolan.github.io/jq/[jq], for example:
+The simplest setup is to apply the plugin only at the **root project** and let it propagate:
+
+[source,kotlin,subs="+attributes"]
+----
+// root build.gradle.kts
+plugins {
+    id("io.github.dnalchemist.gitlab-code-quality") version "{version_stable}"
+}
+
+gitlabCodeQuality {
+    applyToSubprojects.set(true)
+}
+----
+
+That is equivalent to writing `+subprojects { apply(plugin = "io.github.dnalchemist.gitlab-code-quality") }+` by hand — use whichever style your build prefers. Each subproject still needs its own SpotBugs / Checkstyle configuration.
+
+Run the aggregator and point GitLab CI at its output (`+build/gl-code-quality-aggregate.json+` of the root project by default):
 
 [source,yaml]
 ----
 build:
   stage: build
   image: ...
-  before_script:
-    - apt-get update && apt-get install -y jq
   script:
-    - ./gradlew check
-  after_script:
-    - find . -name gl-code-quality-report.json -print0 | xargs -0 cat | jq -s "add" > merged-gl-code-quality-report.json
+    - ./gradlew check aggregateGitLabCodeQualityReport
   artifacts:
     reports:
       codequality:
-        - merged-gl-code-quality-report.json
+        - build/gl-code-quality-aggregate.json
+----
+
+The aggregator's inputs and output paths are configurable like any other Gradle task:
+
+[source,kotlin]
+----
+import io.github.dnalchemist.gitlab.codequality.AggregateGitLabCodeQualityReportTask
+
+tasks.named<AggregateGitLabCodeQualityReportTask>("aggregateGitLabCodeQualityReport") {
+    // Add reports from external locations:
+    inputReports.from(file("legacy-reports/another-gl-code-quality-report.json"))
+    outputFile.set(layout.buildDirectory.file("reports/gitlab/code-quality.json"))
+}
 ----
 
 == Using snapshots
